@@ -1,2 +1,2 @@
 # FunColor
-## For my son to play smartphone
+## 为我的儿子**朵朵**开发的第一个App
