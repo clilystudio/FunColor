@@ -145,8 +145,8 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     private void loadPrefs() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         mHue = prefs.getInt(KEY_HUE, 160);
-        mSaturation = prefs.getInt(KEY_SATURATION, 160);
-        mLightness = prefs.getInt(KEY_LIGHTNESS, 160);
+        mSaturation = prefs.getInt(KEY_SATURATION, 80);
+        mLightness = prefs.getInt(KEY_LIGHTNESS, 0);
     }
 
     private void savePrefs() {
