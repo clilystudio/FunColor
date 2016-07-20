@@ -25,6 +25,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -47,22 +48,26 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     private static final String KEY_HUE = "Hue";
     private static final String KEY_SATURATION = "Saturation";
     private static final String KEY_LIGHTNESS = "Lightness";
-    BackgroundSound mBackgroundSound;
+    private static final int LIGHTNESS_STEP = 4;
+    private static final int HUE_STEP = 20;
+    private static final int SATURATION_STEP = 32;
+    private BackgroundSound mBackgroundSound;
     private MediaPlayer mMediaPlayer;
-    private TimerHandle mHandler = new TimerHandle(this);
+    private final TimerHandle mHandler = new TimerHandle(this);
     private Timer mTimer;
     private TimerTask mTimerTask;
     private TextView mContentView;
     private int mHue = 160;
     private int mSaturation = 80;
     private int mLightness = 0;
-    private Point mSize = new Point();
+    private final Point mSize = new Point();
     private GestureDetector mGestureDetector;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate");
         loadPrefs();
         getWindowManager().getDefaultDisplay().getSize(mSize);
         setContentView(R.layout.activity_main);
@@ -111,7 +116,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                         distanceY *= (1.0f + Math.abs(velocityY) / MAX_VELOCITY);
                     }
                 }
-                int mOffsetX = (int) (12.0f * distanceX / mSize.x);
+                int mOffsetX = (int) (HUE_STEP * distanceX / mSize.x);
                 if (velocityX > 0) {
                     mHue += mOffsetX;
                 } else {
@@ -124,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                     mHue = mHue % 240;
                 }
 
-                int mOffsetY = (int) (24.0f * distanceY / mSize.y);
+                int mOffsetY = (int) (SATURATION_STEP * distanceY / mSize.y);
                 if (velocityY > 0) {
                     mSaturation += mOffsetY;
                 } else {
@@ -142,13 +147,20 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         });
     }
 
+    /**
+     * 载入颜色设定
+     */
     private void loadPrefs() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         mHue = prefs.getInt(KEY_HUE, 160);
-        mSaturation = prefs.getInt(KEY_SATURATION, 80);
+        mSaturation = prefs.getInt(KEY_SATURATION, 0);
         mLightness = prefs.getInt(KEY_LIGHTNESS, 0);
+        Log.d(TAG, "Hue=" + mHue + " Saturation=" + mSaturation + " Lightness=" + mLightness);
     }
 
+    /**
+     * 保存颜色设定
+     */
     private void savePrefs() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = prefs.edit();
@@ -161,6 +173,8 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     @Override
     protected void onStart() {
         super.onStart();
+        Log.d(TAG, "onStart");
+        // 开始播放背景音乐
         mBackgroundSound = new BackgroundSound();
         mBackgroundSound.execute();
     }
@@ -168,7 +182,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     @Override
     protected void onStop() {
         super.onStop();
+        Log.d(TAG, "onStop");
         savePrefs();
+        // 停止播放背景音乐
         mBackgroundSound.cancel(true);
         if (mMediaPlayer != null) {
             mMediaPlayer.pause();
@@ -178,6 +194,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d(TAG, "onDestroy");
         if (mMediaPlayer != null) {
             mMediaPlayer.stop();
             mMediaPlayer = null;
@@ -187,6 +204,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // 屏蔽返回键和菜单键
         return keyCode != KeyEvent.KEYCODE_BACK && keyCode != KeyEvent.KEYCODE_MENU && super.onKeyDown(keyCode, event);
     }
 
@@ -194,16 +212,21 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     public boolean onTouch(View v, MotionEvent event) {
         mGestureDetector.onTouchEvent(event);
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            // 按下时开始亮度变化
             startTimer();
             return true;
         }
         if (event.getAction() == MotionEvent.ACTION_UP) {
+            // 抬起时结束亮度变化
             stopTimer();
             return true;
         }
         return false;
     }
 
+    /**
+     * 启动定时器
+     */
     private void startTimer() {
         if (mTimer == null) {
             mTimer = new Timer();
@@ -212,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
             mTimerTask = new TimerTask() {
                 @Override
                 public void run() {
-                    mLightness += 2;
+                    mLightness += LIGHTNESS_STEP;
                     mLightness = mLightness % 480;
                     Message message = Message.obtain(mHandler, UPDATE_COLOR);
                     mHandler.sendMessage(message);
@@ -222,6 +245,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         mTimer.schedule(mTimerTask, DELAY, PERIOD);
     }
 
+    /**
+     * 停止定时器
+     */
     private void stopTimer() {
         if (mTimer != null) {
             mTimer.cancel();
@@ -233,6 +259,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         }
     }
 
+    /**
+     * 设置背景色和前景色
+     */
     private void setContentColor() {
         int red;
         int green;
@@ -255,6 +284,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         mContentView.invalidate();
     }
 
+    /**
+     * 色彩变化方法
+     */
     private int hue2rgb(float p, float q, float t) {
         if (t < 0) {
             t += 1.0;
@@ -275,7 +307,10 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         return Math.round(color * 255.0f);
     }
 
-    public class BackgroundSound extends AsyncTask<Void, Void, Void> {
+    /**
+     * 播放背景音乐的异步任务
+     */
+    private class BackgroundSound extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
             if (mMediaPlayer == null) {
@@ -290,8 +325,11 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         }
     }
 
+    /**
+     * 处理颜色变化
+     */
     static class TimerHandle extends Handler {
-        WeakReference<MainActivity> mMainActivity;
+        final WeakReference<MainActivity> mMainActivity;
 
         TimerHandle(MainActivity activity) {
             mMainActivity = new WeakReference<>(activity);
